@@ -1,5 +1,22 @@
 # Examination Seating Plan Finder Portal
 
+## Exam Companion — current website
+
+[Open the deployed website](https://exam-companion-sudhanshu.infinitebrioche8.chatgpt.site)
+
+The current student website has two options: **Find My Seat** and **Timetable**,
+with a Baymax theme and a LinkedIn footer credit for Sudhanshu. November 2026
+seat lookup and timetable search use the supplied plan data and work independently
+of the backend database. The hosted website is currently private and requires the
+owner's signed-in account. Backend/admin deployment remains separate.
+
+Source repository: [Exam_Tracker](https://github.com/sudhanshuxmaurya119-eng/Exam_Tracker).
+
+For local development, run `npm install` and `npm run dev` in `frontend`.
+For a production build, run `npm run build` in `frontend`.
+
+The original backend architecture and setup instructions follow below.
+
 A production-ready full-stack web application for managing university examination schedules, validating and importing Excel seating plans with duplicate/invalid row detection, storing datasets in private **Supabase Storage** (`seating-datasets`), persisting relational data in **Supabase PostgreSQL**, and enabling fast student roll-number searches with official downloadable PDF seating slips.
 
 ---
