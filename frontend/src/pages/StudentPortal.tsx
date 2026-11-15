@@ -58,11 +58,11 @@ export const StudentPortal: React.FC = () => {
     e.preventDefault();
     const trimmed = rollNumber.trim().toUpperCase();
     if (!trimmed) {
-      setErrorMessage("Please enter your University Roll Number to search.");
+      setErrorMessage("Please enter your University Registration Number to search.");
       return;
     }
     if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed)) {
-      setErrorMessage("Please enter your complete 15-digit roll number from the supplied seating plans.");
+      setErrorMessage("Please enter your complete 15-digit registration number from the supplied seating plans.");
       setSuppliedResult(null);
       return;
     }
@@ -111,7 +111,7 @@ export const StudentPortal: React.FC = () => {
           <div className="relative z-10 max-w-xl">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-200 sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> November 2026 · MSE / MSE-2</p>
             <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-6xl">Hello there.<br />Let's find your seat<span className="text-rose-400">.</span></h1>
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-stone-300 sm:text-base">A little help before your big day. Enter your roll number, and leave the room-finding to us.</p>
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-stone-300 sm:text-base">A little help before your big day. Enter your registration number, and leave the room-finding to us.</p>
           </div>
           <p className="baymax-hello" aria-hidden="true">Your personal exam companion.</p>
         </div>
@@ -130,7 +130,7 @@ export const StudentPortal: React.FC = () => {
                   htmlFor="roll-number-input"
                   className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5"
                 >
-                  Student Roll Number *
+                  Student Registration Number *
                 </label>
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -139,7 +139,7 @@ export const StudentPortal: React.FC = () => {
                     type="text"
                     value={rollNumber}
                     onChange={(e) => setRollNumber(e.target.value.toUpperCase())}
-                    placeholder="Enter your full roll number"
+                    placeholder="Enter your full registration number"
                     inputMode={!selectedExamId || selectedExamId.startsWith("plan:") ? "numeric" : "text"}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 placeholder-slate-400 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                     required
