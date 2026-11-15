@@ -2,13 +2,17 @@
 
 ## Exam Companion — current website
 
-[Open the deployed website](https://exam-companion-sudhanshu.infinitebrioche8.chatgpt.site)
+[Open the deployed website](https://sudhanshuxmaurya119-eng.github.io/Exam_Tracker/)
 
 The current student website has two options: **Find My Seat** and **Timetable**,
 with a Baymax theme and a LinkedIn footer credit for Sudhanshu. November 2026
 seat lookup and timetable search use the supplied plan data and work independently
-of the backend database. The hosted website is currently private and requires the
-owner's signed-in account. Backend/admin deployment remains separate.
+of the backend database. The website is hosted publicly on GitHub Pages and
+requires no ChatGPT sign-in. Backend/admin deployment remains separate.
+
+Frontend changes pushed to `main` deploy automatically through
+`.github/workflows/deploy-pages.yml`. The Pages build uses `/Exam_Tracker/` as
+its asset base and hash-based navigation so direct links and refreshes work.
 
 Source repository: [Exam_Tracker](https://github.com/sudhanshuxmaurya119-eng/Exam_Tracker).
 

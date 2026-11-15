@@ -1,9 +1,16 @@
 # Current website deployment
 
-- Website: https://exam-companion-sudhanshu.infinitebrioche8.chatgpt.site
+- Website: https://sudhanshuxmaurya119-eng.github.io/Exam_Tracker/
 - GitHub: https://github.com/sudhanshuxmaurya119-eng/Exam_Tracker
 - GitHub branch: `main`
-- Hosting: Sites, owner-only access
+- Hosting: GitHub Pages, public access without ChatGPT sign-in
+- Deployment workflow: `.github/workflows/deploy-pages.yml`
+- Production asset base: `/Exam_Tracker/`
+- Timetable link: https://sudhanshuxmaurya119-eng.github.io/Exam_Tracker/#/timetable
+
+## Previous private Sites deployment
+
+- Previous URL: https://exam-companion-sudhanshu.infinitebrioche8.chatgpt.site
 - Project ID: `appgprj_6af9d845c2148191b8c1bb33e7dda33a`
 - Successful deployment: `appgdep_6af9d8eb2fa88191bc119be9fb86b541`
 - Hosted source commit: `78a8cf9b7a40cff83eb0263b4795ec989d37ae8f`
