@@ -1,0 +1,53 @@
+# =============================================================================
+# Render Blueprint Configuration - Examination Seating Plan Portal Backend
+# =============================================================================
+services:
+  - type: web
+    name: exam-seating-portal-api
+    runtime: python
+    region: singapore
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2 --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false # Set to Supabase PostgreSQL Transaction/Session Pooler URI (sslmode=require)
+      - key: DB_POOL_SIZE
+        value: "10"
+      - key: DB_MAX_OVERFLOW
+        value: "20"
+      - key: DB_POOL_RECYCLE
+        value: "300"
+      - key: SUPABASE_URL
+        sync: false # e.g., https://<project-ref>.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # Backend-only Supabase service_role secret key
+      - key: SUPABASE_STORAGE_BUCKET
+        value: seating-datasets
+      - key: SIGNED_URL_EXPIRES_SECONDS
+        value: "300"
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "120"
+      - key: FRONTEND_URL
+        sync: false # e.g., https://exam-seating-portal.vercel.app
+      - key: CORS_ORIGINS
+        sync: false # e.g., https://exam-seating-portal.vercel.app
+      - key: INITIAL_ADMIN_USERNAME
+        value: admin
+      - key: INITIAL_ADMIN_EMAIL
+        value: admin@examportal.edu
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false # Set strong initial administrator password in Render Dashboard
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "10"
