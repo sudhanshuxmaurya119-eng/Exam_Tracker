@@ -11,6 +11,7 @@ import { SeatingCard } from "../components/SeatingCard";
 import { StatusBanner } from "../components/StatusBanner";
 import { SuppliedSeatResults } from "../components/SuppliedSeatResults";
 import cs205bSeating from "../data/cs205b-seating.json";
+import el106bRoster from "../data/el106b-roster.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -22,6 +23,8 @@ interface BatchAllocation {
 
 const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
 const cs205bOption = "plan:cs205b";
+const el106bOption = "plan:el106b";
+const el106bRosterByRegistration: Record<string, string> = el106bRoster;
 const originalCs205bSession = "2026-11-23-morning-roomwise";
 const batchTime = (batch: number) => batch === 1 ? "10:00 AM – 1:00 PM" : "1:30 PM – 4:30 PM";
 
@@ -36,6 +39,7 @@ export const StudentPortal: React.FC = () => {
   const [searchResult, setSearchResult] = useState<StudentSearchResponse | null>(null);
   const [suppliedResult, setSuppliedResult] = useState<{ roll: string; seats: SuppliedSeat[] } | null>(null);
   const [batchResults, setBatchResults] = useState<BatchAllocation[]>([]);
+  const [el106bBranch, setEl106bBranch] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -72,6 +76,7 @@ export const StudentPortal: React.FC = () => {
     e.preventDefault();
     const trimmed = rollNumber.trim().toUpperCase();
     setBatchResults([]);
+    setEl106bBranch(null);
     const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
@@ -92,13 +97,21 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        const rosterBranch = /^\d{15}$/.test(trimmed) ? el106bRosterByRegistration[trimmed] : undefined;
+        if (planId === "el106b") {
+          if (rosterBranch && selectedShift !== "Evening") setEl106bBranch(rosterBranch);
+          else setErrorMessage("No EL106B roster entry matches this registration number and shift.");
+          return;
+        }
         const matches = !planId || planId === "cs205b" || planId === originalCs205bSession
           ? allocations.filter(({ batch }) => !selectedShift || selectedShift === (batch === 1 ? "Morning" : "Evening"))
           : [];
         const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
         const currentSeats = allocations.length ? seats.filter(seat => seat.plan.id !== originalCs205bSession) : seats;
         setBatchResults(matches);
-        if (currentSeats.length || !matches.length) setSuppliedResult({ roll: trimmed, seats: currentSeats });
+        const showRoster = !planId && rosterBranch && selectedShift !== "Evening";
+        if (showRoster) setEl106bBranch(rosterBranch);
+        if (currentSeats.length || (!matches.length && !showRoster)) setSuppliedResult({ roll: trimmed, seats: currentSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -185,6 +198,7 @@ export const StudentPortal: React.FC = () => {
                 >
                   <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
                     <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
                     {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
                       {planDate(plan.date)} · {plan.shift} · {planTime(plan.shift)}
@@ -263,6 +277,14 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {el106bBranch && (
+          <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
+            <h2 className="text-xl font-bold">EL106B · Introduction to AI &amp; ML</h2>
+            <p className="mt-2">20 November 2026 · 10:00 AM – 12:00 PM IST</p>
+            <p className="mt-1">{el106bBranch} · Section A · Year II</p>
+            <p className="mt-3 text-sm text-stone-600">Your registration number is on the exam roster. Your room and seat assignment are unavailable.</p>
+          </section>
+        )}
         {batchResults.length > 0 && (
           <section aria-live="polite" className="space-y-3">
             <h2 className="text-xl font-bold">CS205B seating · 23 November 2026</h2>
