@@ -10,7 +10,20 @@ import { PublicExamination, StudentSearchResponse } from "../types";
 import { SeatingCard } from "../components/SeatingCard";
 import { StatusBanner } from "../components/StatusBanner";
 import { SuppliedSeatResults } from "../components/SuppliedSeatResults";
+import cs205bSeating from "../data/cs205b-seating.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
+
+interface BatchAllocation {
+  section: string;
+  group: number;
+  room: string;
+  batch: number;
+}
+
+const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
+const cs205bOption = "plan:cs205b";
+const originalCs205bSession = "2026-11-23-morning-roomwise";
+const batchTime = (batch: number) => batch === 1 ? "10:00 AM – 1:00 PM" : "1:30 PM – 4:30 PM";
 
 export const StudentPortal: React.FC = () => {
   const [rollNumber, setRollNumber] = useState("");
@@ -22,6 +35,7 @@ export const StudentPortal: React.FC = () => {
 
   const [searchResult, setSearchResult] = useState<StudentSearchResponse | null>(null);
   const [suppliedResult, setSuppliedResult] = useState<{ roll: string; seats: SuppliedSeat[] } | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchAllocation[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -57,11 +71,13 @@ export const StudentPortal: React.FC = () => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = rollNumber.trim().toUpperCase();
+    setBatchResults([]);
+    const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
       return;
     }
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed)) {
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed) && !allocations.length && selectedExamId !== cs205bOption) {
       setErrorMessage("Please enter your complete 15-digit registration number from the supplied seating plans.");
       setSuppliedResult(null);
       return;
@@ -75,8 +91,14 @@ export const StudentPortal: React.FC = () => {
 
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
-        const seats = await searchSuppliedSeats(trimmed, selectedExamId.replace(/^plan:/, "") || undefined, selectedShift || undefined);
-        setSuppliedResult({ roll: trimmed, seats });
+        const planId = selectedExamId.replace(/^plan:/, "");
+        const matches = !planId || planId === "cs205b" || planId === originalCs205bSession
+          ? allocations.filter(({ batch }) => !selectedShift || selectedShift === (batch === 1 ? "Morning" : "Evening"))
+          : [];
+        const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
+        const currentSeats = allocations.length ? seats.filter(seat => seat.plan.id !== originalCs205bSession) : seats;
+        setBatchResults(matches);
+        if (currentSeats.length || !matches.length) setSuppliedResult({ roll: trimmed, seats: currentSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -140,7 +162,7 @@ export const StudentPortal: React.FC = () => {
                     value={rollNumber}
                     onChange={(e) => setRollNumber(e.target.value.toUpperCase())}
                     placeholder="Enter your full registration number"
-                    inputMode={!selectedExamId || selectedExamId.startsWith("plan:") ? "numeric" : "text"}
+                    inputMode="text"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 placeholder-slate-400 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                     required
                   />
@@ -161,8 +183,9 @@ export const StudentPortal: React.FC = () => {
                   onChange={(e) => { setSelectedExamId(e.target.value); setSelectedShift(""); }}
                   className="w-full px-3.5 py-3 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
-                  <option value="">All supplied roomwise plans (18–27 Nov)</option>
+                  <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
                     {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
                       {planDate(plan.date)} · {plan.shift} · {planTime(plan.shift)}
                     </option>)}
@@ -240,6 +263,19 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {batchResults.length > 0 && (
+          <section aria-live="polite" className="space-y-3">
+            <h2 className="text-xl font-bold">CS205B seating · 23 November 2026</h2>
+            {batchResults.length > 1 && <p className="text-sm text-amber-800">This registration number has multiple entries. Confirm your section and batch with your exam coordinator.</p>}
+            {batchResults.map(({ section, group, room, batch }, index) => (
+              <article key={index} className="rounded-2xl border border-stone-200 bg-white p-5">
+                <h3 className="text-lg font-bold">{room}</h3>
+                <p>{section} · Group {group} · Batch {batch}</p>
+                <p className="text-sm text-stone-600">{batchTime(batch)} IST</p>
+              </article>
+            ))}
+          </section>
+        )}
         {suppliedResult && <SuppliedSeatResults roll={suppliedResult.roll} seats={suppliedResult.seats} />}
 
         {/* Student Search Results */}

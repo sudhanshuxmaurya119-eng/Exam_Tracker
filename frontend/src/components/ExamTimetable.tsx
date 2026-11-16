@@ -6,6 +6,10 @@ const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "
 const dateLabel = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
   weekday: "short", day: "numeric", month: "short", year: "numeric",
 });
+const examTime = (entry: (typeof timetable)[number]) => entry.subject.startsWith("CS205B ")
+  ? "10:00 AM – 1:00 PM or 1:30 PM – 4:30 PM (check your assigned batch in Find My Seat)"
+  : `${entry.start} – ${entry.end}`;
+
 const options = (values: string[]) => Array.from(new Set(values)).sort();
 const inputClass = "w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500";
 
@@ -81,12 +85,12 @@ export const ExamTimetable: React.FC = () => {
             <table className="w-full table-fixed text-left text-sm">
               <caption className="sr-only">November 2026 MSE 2 and PUE exam timetable. All times in IST.</caption>
               <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th scope="col" className="w-[18%] p-4">Date</th><th scope="col" className="w-[19%] p-4">Time (IST)</th><th scope="col" className="w-[24%] p-4">Programme / Branch</th><th scope="col" className="p-4">Paper / Course</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{filtered.map(e => <tr key={e.id} className="align-top hover:bg-rose-50/30"><td className="p-4 font-semibold text-slate-800"><time dateTime={e.date}>{dateLabel(e.date)}</time><span className="mt-1 block text-xs font-normal text-rose-600">{e.exam}</span></td><td className="p-4 text-slate-600">{e.start} – {e.end}</td><td className="break-words p-4 text-slate-700"><span className="font-semibold">{e.program} · {e.branch === e.program ? `Sem ${e.semester}` : e.branch}</span><span className="mt-1 block text-xs text-slate-500">Semester {e.semester}</span></td><td className="break-words p-4 font-medium leading-relaxed text-slate-900">{e.subject}{e.mode && <span className="mt-1 block text-xs font-normal text-slate-500">{e.mode}</span>}<a href={`${import.meta.env.BASE_URL}exam-datesheet-november-2026.pdf#page=${e.page}`} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs font-normal text-rose-600 underline">Source · page {e.page}</a></td></tr>)}</tbody>
+              <tbody className="divide-y divide-slate-100">{filtered.map(e => <tr key={e.id} className="align-top hover:bg-rose-50/30"><td className="p-4 font-semibold text-slate-800"><time dateTime={e.date}>{dateLabel(e.date)}</time><span className="mt-1 block text-xs font-normal text-rose-600">{e.exam}</span></td><td className="p-4 text-slate-600">{examTime(e)}</td><td className="break-words p-4 text-slate-700"><span className="font-semibold">{e.program} · {e.branch === e.program ? `Sem ${e.semester}` : e.branch}</span><span className="mt-1 block text-xs text-slate-500">Semester {e.semester}</span></td><td className="break-words p-4 font-medium leading-relaxed text-slate-900">{e.subject}{e.mode && <span className="mt-1 block text-xs font-normal text-slate-500">{e.mode}</span>}<a href={`${import.meta.env.BASE_URL}exam-datesheet-november-2026.pdf#page=${e.page}`} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs font-normal text-rose-600 underline">Source · page {e.page}</a></td></tr>)}</tbody>
             </table>
           </div>
           <div className="space-y-3 border-t border-slate-200 bg-slate-50 p-4 md:hidden">{filtered.map(e => <article key={e.id} className="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><time dateTime={e.date} className="text-sm font-bold text-rose-700">{dateLabel(e.date)}</time><span className="rounded bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">{e.exam}</span></div>
-            <p className="mt-2 text-sm font-semibold text-slate-600">{e.start} – {e.end} IST</p>
+            <p className="mt-2 text-sm font-semibold text-slate-600">{examTime(e)} IST</p>
             <h3 className="mt-3 break-words text-sm font-bold leading-relaxed text-slate-900">{e.subject}</h3>
             <p className="mt-3 break-words text-xs text-slate-500">{e.program}{e.branch !== e.program && ` · ${e.branch}`} · Semester {e.semester}{e.mode && ` · ${e.mode}`}</p>
             <a href={`${import.meta.env.BASE_URL}exam-datesheet-november-2026.pdf#page=${e.page}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs text-rose-700 underline">View official datesheet · page {e.page}</a>
