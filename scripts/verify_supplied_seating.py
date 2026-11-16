@@ -5,8 +5,8 @@ from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
 manifest = json.loads((ROOT / 'frontend/src/data/seating-plans.json').read_text(encoding='utf-8'))
-assert len(manifest) == 22
-assert sum(p['kind'] == 'roomwise' for p in manifest) == 13
+assert len(manifest) == 46
+assert sum(p['kind'] == 'roomwise' for p in manifest) == 25
 seat_count = 0
 for plan in manifest:
     assert (ROOT / 'frontend/public' / plan['url']).read_bytes().startswith(b'%PDF')
@@ -17,7 +17,7 @@ for plan in manifest:
     assert len(index['rooms']) == plan['pages']
     seat_count += len(index['seats'])
     for roll, room, row, column in index['seats']:
-        assert len(roll) == 15 and roll.isdigit()
+        assert roll.isdigit() and len(roll) == (16 if plan.get('universityBatch') else 15)
         assert 0 <= room < len(index['rooms']) and row > 0 and column > 0
 
 with sync_playwright() as p:

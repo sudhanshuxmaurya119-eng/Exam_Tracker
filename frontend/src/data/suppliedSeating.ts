@@ -9,6 +9,7 @@ export interface SuppliedPlan {
   pages: number;
   indexUrl?: string;
   seatCount?: number;
+  universityBatch?: boolean;
 }
 interface Room { room: string; building: string; floor: string; page: number }
 interface SeatIndex { rooms: Room[]; seats: [string, number, number, number][] }

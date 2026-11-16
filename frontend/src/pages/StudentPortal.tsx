@@ -93,8 +93,8 @@ export const StudentPortal: React.FC = () => {
     }
     const isUid = /^\d{4}BTECH\d+$/.test(trimmed);
     const isTrackPlan = selectedExamId === "plan:pps" || selectedExamId === "plan:ibm";
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && selectedExamId !== cs205bOption) {
-      setErrorMessage("Please enter your full registration number or KIET UID from your exam plan.");
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && selectedExamId !== cs205bOption) {
+      setErrorMessage("Please enter the full registration number, enrollment number, or KIET UID from your exam plan.");
       setSuppliedResult(null);
       return;
     }
@@ -192,7 +192,7 @@ export const StudentPortal: React.FC = () => {
                     type="text"
                     value={rollNumber}
                     onChange={(e) => setRollNumber(e.target.value.toUpperCase())}
-                    placeholder="Enter your full registration number"
+                    placeholder="Enter registration number, enrollment number, or KIET UID"
                     inputMode="text"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 placeholder-slate-400 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                     required
@@ -221,7 +221,7 @@ export const StudentPortal: React.FC = () => {
                     <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
                     <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
                     {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
-                      {planDate(plan.date)} · {plan.shift} · {planTime(plan.shift)}
+                      {planDate(plan.date)} · {plan.universityBatch && plan.shift === "Evening" ? "Afternoon" : plan.shift} · {plan.universityBatch ? "University batch" : planTime(plan.shift)}
                     </option>)}
                   </optgroup>
                   {examinations.length > 0 && <optgroup label="Other published examinations">
