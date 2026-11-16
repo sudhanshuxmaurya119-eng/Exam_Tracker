@@ -1,5 +1,4 @@
 import React from "react";
-import { Linkedin } from "lucide-react";
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { Navbar } from "./components/Navbar";
@@ -27,7 +26,17 @@ export const App: React.FC = () => {
             </Routes>
           </div>
           <footer className="border-t border-stone-200 bg-white/90 px-4 py-6 text-center text-sm text-stone-600">
-            Made By <a href="https://www.linkedin.com/in/sudhanshu-maurya-b4421b401/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-bold text-stone-950 hover:text-[#0A66C2] hover:underline">Sudhanshu<Linkedin className="h-4 w-4 text-[#0A66C2]" aria-hidden="true" /></a>
+            Made By{" "}
+            <a
+              href="https://www.linkedin.com/in/sudhanshu-maurya-b4421b401/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Sudhanshu on LinkedIn"
+              className="inline-flex items-center gap-2 align-middle font-bold text-stone-950 hover:text-[#0A66C2] hover:underline"
+            >
+              Sudhanshu
+              <span aria-hidden="true" className="inline-flex h-8 w-8 items-center justify-center rounded bg-[#0A66C2] text-2xl font-extrabold leading-none tracking-tight text-white">in</span>
+            </a>
           </footer>
         </div>
       </Router>
