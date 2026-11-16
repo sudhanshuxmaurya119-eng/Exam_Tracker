@@ -25,14 +25,14 @@ export const App: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-          <footer className="border-t border-stone-200 bg-white/90 px-4 py-6 text-center text-sm text-stone-600">
-            Made By{" "}
+          <footer className="flex items-center justify-center gap-1 border-t border-stone-200 bg-white/90 px-4 py-6 text-sm text-stone-600">
+            <span>Made By</span>{" "}
             <a
               href="https://www.linkedin.com/in/sudhanshu-maurya-b4421b401/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Sudhanshu on LinkedIn"
-              className="inline-flex items-center gap-2 align-middle font-bold text-stone-950 hover:text-[#0A66C2] hover:underline"
+              className="inline-flex items-center gap-2 font-bold text-stone-950 hover:text-[#0A66C2] hover:underline"
             >
               Sudhanshu
               <span aria-hidden="true" className="inline-flex h-8 w-8 items-center justify-center rounded bg-[#0A66C2] text-2xl font-extrabold leading-none tracking-tight text-white">in</span>
