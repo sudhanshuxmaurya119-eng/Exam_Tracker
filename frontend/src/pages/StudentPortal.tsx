@@ -12,6 +12,7 @@ import { StatusBanner } from "../components/StatusBanner";
 import { SuppliedSeatResults } from "../components/SuppliedSeatResults";
 import cs205bSeating from "../data/cs205b-seating.json";
 import el106bRoster from "../data/el106b-roster.json";
+import trackSeating from "../data/track-seating.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -24,6 +25,12 @@ interface BatchAllocation {
 const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
 const cs205bOption = "plan:cs205b";
 const el106bOption = "plan:el106b";
+const trackExams = {
+  pps: { title: "Programming for Problem Solving (26IT101ESB)", date: "2026-11-18", evening: "2:00 PM – 4:00 PM" },
+  ibm: { title: "IBM Track · Web Designing and Cloud Foundations", date: "2026-11-19", evening: "1:30 PM – 3:30 PM" },
+};
+type TrackSeat = { exam: string; shift: string; room: string };
+const trackSeatsByUid: Record<string, TrackSeat[]> = trackSeating;
 const el106bRosterByRegistration: Record<string, string> = el106bRoster;
 const originalCs205bSession = "2026-11-23-morning-roomwise";
 const batchTime = (batch: number) => batch === 1 ? "10:00 AM – 1:00 PM" : "1:30 PM – 4:30 PM";
@@ -40,6 +47,7 @@ export const StudentPortal: React.FC = () => {
   const [suppliedResult, setSuppliedResult] = useState<{ roll: string; seats: SuppliedSeat[] } | null>(null);
   const [batchResults, setBatchResults] = useState<BatchAllocation[]>([]);
   const [el106bBranch, setEl106bBranch] = useState<string | null>(null);
+  const [trackResults, setTrackResults] = useState<TrackSeat[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -77,13 +85,16 @@ export const StudentPortal: React.FC = () => {
     const trimmed = rollNumber.trim().toUpperCase();
     setBatchResults([]);
     setEl106bBranch(null);
+    setTrackResults([]);
     const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
       return;
     }
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed) && !allocations.length && selectedExamId !== cs205bOption) {
-      setErrorMessage("Please enter your complete 15-digit registration number from the supplied seating plans.");
+    const isUid = /^\d{4}BTECH\d+$/.test(trimmed);
+    const isTrackPlan = selectedExamId === "plan:pps" || selectedExamId === "plan:ibm";
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && selectedExamId !== cs205bOption) {
+      setErrorMessage("Please enter your full registration number or KIET UID from your exam plan.");
       setSuppliedResult(null);
       return;
     }
@@ -97,6 +108,13 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        if (isTrackPlan || (!planId && isUid)) {
+          const matches = (Object.prototype.hasOwnProperty.call(trackSeatsByUid, trimmed) ? trackSeatsByUid[trimmed] : [])
+            .filter(seat => (!planId || seat.exam === planId) && (!selectedShift || seat.shift === selectedShift));
+          setTrackResults(matches);
+          if (!matches.length) setErrorMessage("No assignment matches this KIET UID, exam, and shift. Check the UID and try again.");
+          return;
+        }
         const rosterBranch = /^\d{15}$/.test(trimmed) ? el106bRosterByRegistration[trimmed] : undefined;
         if (planId === "el106b") {
           if (rosterBranch && selectedShift !== "Evening") setEl106bBranch(rosterBranch);
@@ -198,6 +216,8 @@ export const StudentPortal: React.FC = () => {
                 >
                   <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
+                    <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
                     <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
                     <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
                     {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
@@ -277,6 +297,22 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {trackResults.length > 0 && (
+          <section aria-live="polite" className="space-y-3">
+            <h2 className="text-xl font-bold">Your exam rooms</h2>
+            {trackResults.map(seat => {
+              const exam = seat.exam === "pps" ? trackExams.pps : trackExams.ibm;
+              const time = seat.shift === "Morning" ? "10:00 AM – 12:00 PM" : exam.evening;
+              return (
+                <article key={seat.exam} className="rounded-2xl border border-stone-200 bg-white p-5">
+                  <h3 className="font-bold">{exam.title}</h3>
+                  <p className="mt-2 text-sm">{planDate(exam.date)} · {seat.shift} shift · {time} IST</p>
+                  <p className="mt-2 text-lg font-bold">{seat.room}</p>
+                </article>
+              );
+            })}
+          </section>
+        )}
         {el106bBranch && (
           <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="text-xl font-bold">EL106B · Introduction to AI &amp; ML</h2>
