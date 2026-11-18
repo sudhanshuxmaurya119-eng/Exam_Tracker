@@ -13,6 +13,7 @@ import { SuppliedSeatResults } from "../components/SuppliedSeatResults";
 import cs205bSeating from "../data/cs205b-seating.json";
 import el106bRoster from "../data/el106b-roster.json";
 import trackSeating from "../data/track-seating.json";
+import cs336bRooms from "../data/cs336b-rooms.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -48,6 +49,7 @@ export const StudentPortal: React.FC = () => {
   const [batchResults, setBatchResults] = useState<BatchAllocation[]>([]);
   const [el106bBranch, setEl106bBranch] = useState<string | null>(null);
   const [trackResults, setTrackResults] = useState<TrackSeat[]>([]);
+  const [cs336bRoom, setCs336bRoom] = useState<(typeof cs336bRooms)[number] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -86,6 +88,7 @@ export const StudentPortal: React.FC = () => {
     setBatchResults([]);
     setEl106bBranch(null);
     setTrackResults([]);
+    setCs336bRoom(null);
     const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
@@ -108,6 +111,14 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        const oopjRoom = /^\d{15}$/.test(trimmed) && selectedShift !== "Evening"
+          ? cs336bRooms.find(({ start, end, additional }) => additional.includes(trimmed) || (trimmed >= start && trimmed <= end))
+          : undefined;
+        if (planId === "cs336b") {
+          if (oopjRoom) setCs336bRoom(oopjRoom);
+          else setErrorMessage("No CS336B room range matches this registration number and shift.");
+          return;
+        }
         if (isTrackPlan || (!planId && isUid)) {
           const matches = (Object.prototype.hasOwnProperty.call(trackSeatsByUid, trimmed) ? trackSeatsByUid[trimmed] : [])
             .filter(seat => (!planId || seat.exam === planId) && (!selectedShift || seat.shift === selectedShift));
@@ -129,7 +140,10 @@ export const StudentPortal: React.FC = () => {
         setBatchResults(matches);
         const showRoster = !planId && rosterBranch && selectedShift !== "Evening";
         if (showRoster) setEl106bBranch(rosterBranch);
-        if (currentSeats.length || (!matches.length && !showRoster)) setSuppliedResult({ roll: trimmed, seats: currentSeats });
+        const showOopj = oopjRoom && (!planId || planId === "2026-11-19-morning-roomwise");
+        const visibleSeats = showOopj ? currentSeats.filter(seat => seat.plan.id !== "2026-11-19-morning-roomwise") : currentSeats;
+        if (showOopj) setCs336bRoom(oopjRoom);
+        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj)) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -218,6 +232,7 @@ export const StudentPortal: React.FC = () => {
                   <optgroup label="MSE / MSE-2 · November 2026">
                     <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
                     <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
+                    <option value="plan:cs336b">19 Nov 2026 · CS336B · 2nd-year CSE-AIML</option>
                     <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
                     <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
                     {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
@@ -297,6 +312,15 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {cs336bRoom && (
+          <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
+            <h2 className="text-xl font-bold">CS336B · Object Oriented Programming with Java</h2>
+            <p className="mt-2">19 November 2026 · 10:00 AM – 12:30 PM IST</p>
+            <p className="mt-1">Batch {cs336bRoom.batch}</p>
+            <p className="mt-2 text-lg font-bold">Room {cs336bRoom.room}</p>
+            <p className="mt-3 text-sm text-stone-600">Matched against the published roll-number ranges and individual entries. Confirm your batch with the exam coordinator if needed.</p>
+          </section>
+        )}
         {trackResults.length > 0 && (
           <section aria-live="polite" className="space-y-3">
             <h2 className="text-xl font-bold">Your exam rooms</h2>
