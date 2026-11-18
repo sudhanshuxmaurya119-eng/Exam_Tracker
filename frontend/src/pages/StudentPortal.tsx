@@ -14,6 +14,7 @@ import cs205bSeating from "../data/cs205b-seating.json";
 import el106bRoster from "../data/el106b-roster.json";
 import trackSeating from "../data/track-seating.json";
 import cs336bRooms from "../data/cs336b-rooms.json";
+import ai101bRooms from "../data/ai101b-rooms.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -50,6 +51,7 @@ export const StudentPortal: React.FC = () => {
   const [el106bBranch, setEl106bBranch] = useState<string | null>(null);
   const [trackResults, setTrackResults] = useState<TrackSeat[]>([]);
   const [cs336bRoom, setCs336bRoom] = useState<(typeof cs336bRooms)[number] | null>(null);
+  const [ai101bMatches, setAi101bMatches] = useState<typeof ai101bRooms>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -89,6 +91,7 @@ export const StudentPortal: React.FC = () => {
     setEl106bBranch(null);
     setTrackResults([]);
     setCs336bRoom(null);
+    setAi101bMatches([]);
     const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
@@ -96,7 +99,10 @@ export const StudentPortal: React.FC = () => {
     }
     const isUid = /^\d{4}BTECH\d+$/.test(trimmed);
     const isTrackPlan = selectedExamId === "plan:pps" || selectedExamId === "plan:ibm";
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && selectedExamId !== cs205bOption) {
+    const namedAi101b = ai101bRooms.filter(room => room.additional.includes(trimmed));
+    const ai101bRoomsForRoll = namedAi101b.length ? namedAi101b : ai101bRooms.filter(room =>
+      /^\d{13}$/.test(trimmed) && trimmed >= room.start && trimmed <= room.end);
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !ai101bRoomsForRoll.length && ![cs205bOption, "plan:ai101b"].includes(selectedExamId)) {
       setErrorMessage("Please enter the full registration number, enrollment number, or KIET UID from your exam plan.");
       setSuppliedResult(null);
       return;
@@ -111,6 +117,11 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        if (planId === "ai101b" || (!planId && ai101bRoomsForRoll.length)) {
+          if (ai101bRoomsForRoll.length && selectedShift !== "Evening") setAi101bMatches(ai101bRoomsForRoll);
+          else setErrorMessage("No AI101B room matches this roll number and shift.");
+          return;
+        }
         const oopjRoom = /^\d{15}$/.test(trimmed) && selectedShift !== "Evening"
           ? cs336bRooms.find(({ start, end, additional }) => additional.includes(trimmed) || (trimmed >= start && trimmed <= end))
           : undefined;
@@ -232,6 +243,7 @@ export const StudentPortal: React.FC = () => {
                   <optgroup label="MSE / MSE-2 · November 2026">
                     <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
                     <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
+                    <option value="plan:ai101b">19 Nov 2026 · AI101B · 2nd-year ECE / VLSI</option>
                     <option value="plan:cs336b">19 Nov 2026 · CS336B · 2nd-year CSE-AIML</option>
                     <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
                     <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
@@ -312,6 +324,16 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {ai101bMatches.length > 0 && (
+          <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
+            <h2 className="text-xl font-bold">AI101B · Introduction to AI</h2>
+            <p className="mt-2">19 November 2026 · 10:00 AM – 12:00 PM IST</p>
+            {ai101bMatches.map(({ room, section }) => (
+              <p key={room} className="mt-2 font-bold">Room {room} · Section {section} · Side A</p>
+            ))}
+            <p className="mt-3 text-sm text-stone-600">{ai101bMatches.length > 1 ? "The published ranges overlap for this roll number. Confirm your room with the exam coordinator." : "Room based on the workbook’s roll-number ranges or individual entries."}</p>
+          </section>
+        )}
         {cs336bRoom && (
           <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="text-xl font-bold">CS336B · Object Oriented Programming with Java</h2>
