@@ -15,6 +15,7 @@ import el106bRoster from "../data/el106b-roster.json";
 import trackSeating from "../data/track-seating.json";
 import cs336bRooms from "../data/cs336b-rooms.json";
 import ai101bRooms from "../data/ai101b-rooms.json";
+import cs302bSeating from "../data/cs302b-seating.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -23,6 +24,17 @@ interface BatchAllocation {
   room: string;
   batch: number;
 }
+
+interface Cs302bAllocation {
+  shift: string;
+  room: string;
+  branch: string;
+  section: string;
+  page: number;
+}
+
+const cs302bByRegistration: Record<string, Cs302bAllocation> = cs302bSeating;
+const cs302bOption = "plan:cs302b";
 
 const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
 const cs205bOption = "plan:cs205b";
@@ -52,6 +64,7 @@ export const StudentPortal: React.FC = () => {
   const [trackResults, setTrackResults] = useState<TrackSeat[]>([]);
   const [cs336bRoom, setCs336bRoom] = useState<(typeof cs336bRooms)[number] | null>(null);
   const [ai101bMatches, setAi101bMatches] = useState<typeof ai101bRooms>([]);
+  const [cs302bResult, setCs302bResult] = useState<Cs302bAllocation | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -92,6 +105,10 @@ export const StudentPortal: React.FC = () => {
     setTrackResults([]);
     setCs336bRoom(null);
     setAi101bMatches([]);
+    setCs302bResult(null);
+    const cs302bAssignment = Object.prototype.hasOwnProperty.call(cs302bByRegistration, trimmed)
+      ? cs302bByRegistration[trimmed]
+      : undefined;
     const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
     if (!trimmed) {
       setErrorMessage("Please enter your University Registration Number to search.");
@@ -102,7 +119,7 @@ export const StudentPortal: React.FC = () => {
     const namedAi101b = ai101bRooms.filter(room => room.additional.includes(trimmed));
     const ai101bRoomsForRoll = namedAi101b.length ? namedAi101b : ai101bRooms.filter(room =>
       /^\d{13}$/.test(trimmed) && trimmed >= room.start && trimmed <= room.end);
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !ai101bRoomsForRoll.length && ![cs205bOption, "plan:ai101b"].includes(selectedExamId)) {
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !cs302bAssignment && !ai101bRoomsForRoll.length && ![cs205bOption, cs302bOption, "plan:ai101b"].includes(selectedExamId)) {
       setErrorMessage("Please enter the full registration number, enrollment number, or KIET UID from your exam plan.");
       setSuppliedResult(null);
       return;
@@ -117,6 +134,15 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        const isPreviousCs302bSession = /^2026-11-25-(morning|evening)-roomwise$/.test(planId);
+        const requestedCs302bShift = selectedShift || (isPreviousCs302bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
+        const matchesCs302bShift = cs302bAssignment && (!requestedCs302bShift || requestedCs302bShift === cs302bAssignment.shift);
+        if (planId === "cs302b" || (isPreviousCs302bSession && cs302bAssignment)) {
+          if (matchesCs302bShift) setCs302bResult(cs302bAssignment);
+          else setErrorMessage("No CS302B assignment matches this registration number and shift. Try All Shifts to check your assignment.");
+          return;
+        }
+        if (!planId && matchesCs302bShift) setCs302bResult(cs302bAssignment);
         if (planId === "ai101b" || (!planId && ai101bRoomsForRoll.length)) {
           if (ai101bRoomsForRoll.length && selectedShift !== "Evening") setAi101bMatches(ai101bRoomsForRoll);
           else setErrorMessage("No AI101B room matches this roll number and shift.");
@@ -147,14 +173,16 @@ export const StudentPortal: React.FC = () => {
           ? allocations.filter(({ batch }) => !selectedShift || selectedShift === (batch === 1 ? "Morning" : "Evening"))
           : [];
         const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
-        const currentSeats = allocations.length ? seats.filter(seat => seat.plan.id !== originalCs205bSession) : seats;
+        const currentSeats = seats.filter(seat =>
+          !(allocations.length && seat.plan.id === originalCs205bSession) &&
+          !(cs302bAssignment && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)));
         setBatchResults(matches);
         const showRoster = !planId && rosterBranch && selectedShift !== "Evening";
         if (showRoster) setEl106bBranch(rosterBranch);
         const showOopj = oopjRoom && (!planId || planId === "2026-11-19-morning-roomwise");
         const visibleSeats = showOopj ? currentSeats.filter(seat => seat.plan.id !== "2026-11-19-morning-roomwise") : currentSeats;
         if (showOopj) setCs336bRoom(oopjRoom);
-        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj)) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
+        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -241,6 +269,7 @@ export const StudentPortal: React.FC = () => {
                 >
                   <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    <option value={cs302bOption}>25 Nov 2026 · CS302B · Updated morning and evening seating</option>
                     <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
                     <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
                     <option value="plan:ai101b">19 Nov 2026 · AI101B · 2nd-year ECE / VLSI</option>
@@ -324,6 +353,20 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {cs302bResult && (
+          <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
+            <h2 className="text-xl font-bold">CS302B · Advanced Data Structure</h2>
+            <p className="mt-2">25 November 2026 · {cs302bResult.shift} shift · {cs302bResult.shift === "Morning" ? "10:00 AM – 12:00 PM" : "2:00 PM – 4:00 PM"} IST</p>
+            <p className="mt-1">{cs302bResult.branch} · Section {cs302bResult.section}</p>
+            <p className="mt-2 text-lg font-bold">Room {cs302bResult.room}</p>
+            <a
+              href={`${import.meta.env.BASE_URL}seating-plans/cs302b-2026-11-25-${cs302bResult.shift.toLowerCase()}.pdf#page=${cs302bResult.page}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-sm text-rose-700 underline"
+            >View seating plan · page {cs302bResult.page}</a>
+          </section>
+        )}
         {ai101bMatches.length > 0 && (
           <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="text-xl font-bold">AI101B · Introduction to AI</h2>

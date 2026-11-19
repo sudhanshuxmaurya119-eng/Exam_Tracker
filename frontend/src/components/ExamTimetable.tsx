@@ -6,9 +6,15 @@ const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "
 const dateLabel = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
   weekday: "short", day: "numeric", month: "short", year: "numeric",
 });
-const examTime = (entry: (typeof timetable)[number]) => entry.subject.startsWith("CS205B ")
-  ? "10:00 AM – 1:00 PM or 1:30 PM – 4:30 PM (check your assigned batch in Find My Seat)"
-  : `${entry.start} – ${entry.end}`;
+const examTime = (entry: (typeof timetable)[number]) => {
+  if (entry.subject.startsWith("CS205B ")) {
+    return "10:00 AM – 1:00 PM or 1:30 PM – 4:30 PM (check your assigned batch in Find My Seat)";
+  }
+  if (entry.subject.startsWith("CS302B ") && entry.date === "2026-11-25") {
+    return "10:00 AM – 12:00 PM or 2:00 PM – 4:00 PM (check your assigned shift in Find My Seat)";
+  }
+  return `${entry.start} – ${entry.end}`;
+};
 
 const options = (values: string[]) => Array.from(new Set(values)).sort();
 const inputClass = "w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500";
