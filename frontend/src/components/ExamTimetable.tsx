@@ -7,6 +7,9 @@ const dateLabel = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateS
   weekday: "short", day: "numeric", month: "short", year: "numeric",
 });
 const examTime = (entry: (typeof timetable)[number]) => {
+  if (entry.subject.startsWith("IT107B ") && entry.date === "2026-11-23") {
+    return "Morning or afternoon (check your assigned shift in Find My Seat and confirm the time with your coordinator)";
+  }
   if (entry.subject.startsWith("CS205B ")) {
     return "10:00 AM – 1:00 PM or 1:30 PM – 4:30 PM (check your assigned batch in Find My Seat)";
   }

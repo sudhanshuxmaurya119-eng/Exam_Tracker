@@ -16,6 +16,7 @@ import trackSeating from "../data/track-seating.json";
 import cs336bRooms from "../data/cs336b-rooms.json";
 import ai101bRooms from "../data/ai101b-rooms.json";
 import cs302bSeating from "../data/cs302b-seating.json";
+import it107bSeating from "../data/it107b-seating.json";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -35,6 +36,16 @@ interface Cs302bAllocation {
 
 const cs302bByRegistration: Record<string, Cs302bAllocation> = cs302bSeating;
 const cs302bOption = "plan:cs302b";
+
+interface It107bAssignment {
+  shift: string;
+  room: string;
+  page: number;
+  source: string;
+}
+
+const it107bByRegistration: Record<string, It107bAssignment> = it107bSeating;
+const it107bOption = "plan:it107b";
 
 const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
 const cs205bOption = "plan:cs205b";
@@ -65,6 +76,7 @@ export const StudentPortal: React.FC = () => {
   const [cs336bRoom, setCs336bRoom] = useState<(typeof cs336bRooms)[number] | null>(null);
   const [ai101bMatches, setAi101bMatches] = useState<typeof ai101bRooms>([]);
   const [cs302bResult, setCs302bResult] = useState<Cs302bAllocation | null>(null);
+  const [it107bResult, setIt107bResult] = useState<It107bAssignment | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -106,6 +118,10 @@ export const StudentPortal: React.FC = () => {
     setCs336bRoom(null);
     setAi101bMatches([]);
     setCs302bResult(null);
+    setIt107bResult(null);
+    const it107bAssignment = Object.prototype.hasOwnProperty.call(it107bByRegistration, trimmed)
+      ? it107bByRegistration[trimmed]
+      : undefined;
     const cs302bAssignment = Object.prototype.hasOwnProperty.call(cs302bByRegistration, trimmed)
       ? cs302bByRegistration[trimmed]
       : undefined;
@@ -134,6 +150,16 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        const isPreviousIt107bSession = /^2026-11-23-(morning|evening)-roomwise$/.test(planId);
+        const requestedIt107bShift = selectedShift || (isPreviousIt107bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
+        const matchesIt107bShift = it107bAssignment && (!requestedIt107bShift || requestedIt107bShift === it107bAssignment.shift);
+        if (planId === "it107b" || (isPreviousIt107bSession && it107bAssignment)) {
+          if (matchesIt107bShift) setIt107bResult(it107bAssignment);
+          else setErrorMessage("No IT107B assignment matches this registration number and shift. Choose All Shifts to check your assignment.");
+          return;
+        }
+        const showIt107b = !planId && matchesIt107bShift;
+        if (showIt107b) setIt107bResult(it107bAssignment);
         const isPreviousCs302bSession = /^2026-11-25-(morning|evening)-roomwise$/.test(planId);
         const requestedCs302bShift = selectedShift || (isPreviousCs302bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
         const matchesCs302bShift = cs302bAssignment && (!requestedCs302bShift || requestedCs302bShift === cs302bAssignment.shift);
@@ -175,14 +201,15 @@ export const StudentPortal: React.FC = () => {
         const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
         const currentSeats = seats.filter(seat =>
           !(allocations.length && seat.plan.id === originalCs205bSession) &&
-          !(cs302bAssignment && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)));
+          !(cs302bAssignment && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)) &&
+          !(it107bAssignment && /^2026-11-23-(morning|evening)-roomwise$/.test(seat.plan.id)));
         setBatchResults(matches);
         const showRoster = !planId && rosterBranch && selectedShift !== "Evening";
         if (showRoster) setEl106bBranch(rosterBranch);
         const showOopj = oopjRoom && (!planId || planId === "2026-11-19-morning-roomwise");
         const visibleSeats = showOopj ? currentSeats.filter(seat => seat.plan.id !== "2026-11-19-morning-roomwise") : currentSeats;
         if (showOopj) setCs336bRoom(oopjRoom);
-        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
+        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !showIt107b && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -269,6 +296,7 @@ export const StudentPortal: React.FC = () => {
                 >
                   <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    <option value={it107bOption}>23 Nov 2026 · IT107B · Updated G-102 / G-113 assignments</option>
                     <option value={cs302bOption}>25 Nov 2026 · CS302B · Updated morning and evening seating</option>
                     <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
                     <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
@@ -353,6 +381,20 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {it107bResult && (
+          <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
+            <h2 className="text-xl font-bold">IT107B · Artificial Intelligence Essentials</h2>
+            <p className="mt-2">23 November 2026 · {it107bResult.shift === "Morning" ? "Morning" : "Afternoon"} shift</p>
+            <p className="mt-2 text-lg font-bold">Room {it107bResult.room}</p>
+            <p className="mt-3 text-sm text-stone-600">The attendance sheet does not specify an exam time. Confirm the time with your exam coordinator.</p>
+            <a
+              href={`${import.meta.env.BASE_URL}${it107bResult.source}#page=${it107bResult.page}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-sm text-rose-700 underline"
+            >View attendance sheet · page {it107bResult.page}</a>
+          </section>
+        )}
         {cs302bResult && (
           <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="text-xl font-bold">CS302B · Advanced Data Structure</h2>
