@@ -17,6 +17,8 @@ import cs336bRooms from "../data/cs336b-rooms.json";
 import ai101bRooms from "../data/ai101b-rooms.json";
 import cs302bSeating from "../data/cs302b-seating.json";
 import it107bSeating from "../data/it107b-seating.json";
+import { FinalAiResults } from "../components/FinalAiResults";
+import { finalAiSessions, FinalAiSeat, getFinalAiSeats } from "../data/finalAiSeating";
 import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
@@ -77,6 +79,7 @@ export const StudentPortal: React.FC = () => {
   const [ai101bMatches, setAi101bMatches] = useState<typeof ai101bRooms>([]);
   const [cs302bResult, setCs302bResult] = useState<Cs302bAllocation | null>(null);
   const [it107bResult, setIt107bResult] = useState<It107bAssignment | null>(null);
+  const [finalAiResults, setFinalAiResults] = useState<FinalAiSeat[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
 
@@ -112,6 +115,8 @@ export const StudentPortal: React.FC = () => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = rollNumber.trim().toUpperCase();
+    const finalAiAssignments = getFinalAiSeats(trimmed);
+    setFinalAiResults([]);
     setBatchResults([]);
     setEl106bBranch(null);
     setTrackResults([]);
@@ -135,7 +140,7 @@ export const StudentPortal: React.FC = () => {
     const namedAi101b = ai101bRooms.filter(room => room.additional.includes(trimmed));
     const ai101bRoomsForRoll = namedAi101b.length ? namedAi101b : ai101bRooms.filter(room =>
       /^\d{13}$/.test(trimmed) && trimmed >= room.start && trimmed <= room.end);
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !cs302bAssignment && !ai101bRoomsForRoll.length && ![cs205bOption, cs302bOption, "plan:ai101b"].includes(selectedExamId)) {
+    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !cs302bAssignment && !finalAiAssignments.length && !ai101bRoomsForRoll.length && ![cs205bOption, cs302bOption, "plan:ai101b"].includes(selectedExamId)) {
       setErrorMessage("Please enter the full registration number, enrollment number, or KIET UID from your exam plan.");
       setSuppliedResult(null);
       return;
@@ -150,6 +155,29 @@ export const StudentPortal: React.FC = () => {
     try {
       if (!selectedExamId || selectedExamId.startsWith("plan:")) {
         const planId = selectedExamId.replace(/^plan:/, "");
+        const finalAiMatches = finalAiAssignments.filter(seat => {
+          const session = finalAiSessions.find(item => item.id === seat.session)!;
+          return !selectedShift || session.shift === selectedShift;
+        });
+        const selectedFinalAi = finalAiSessions.find(session => session.id === planId);
+        const isReplacedFinalAiSession = (date: string, shift: string) => finalAiAssignments.some(seat => {
+          const session = finalAiSessions.find(item => item.id === seat.session)!;
+          return session.date === date && (date === "2026-11-23" || session.shift === shift);
+        });
+        const previousFinalAiPlan = roomwisePlans.find(plan => plan.id === planId && !plan.universityBatch && isReplacedFinalAiSession(plan.date, plan.shift));
+        if (selectedFinalAi || previousFinalAiPlan) {
+          const assignments = selectedFinalAi
+            ? finalAiMatches.filter(seat => seat.session === selectedFinalAi.id)
+            : finalAiMatches.filter(seat => {
+              const session = finalAiSessions.find(item => item.id === seat.session)!;
+              return session.date === previousFinalAiPlan!.date && session.shift === (selectedShift || previousFinalAiPlan!.shift);
+            });
+          if (assignments.length) setFinalAiResults(assignments);
+          else setErrorMessage("No assignment matches this final AI201B session and shift. Select your final AI201B plan and All Shifts to check your assignment.");
+          return;
+        }
+        const showFinalAi = !planId && finalAiMatches.length > 0;
+        if (showFinalAi) setFinalAiResults(finalAiMatches);
         const isPreviousIt107bSession = /^2026-11-23-(morning|evening)-roomwise$/.test(planId);
         const requestedIt107bShift = selectedShift || (isPreviousIt107bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
         const matchesIt107bShift = it107bAssignment && (!requestedIt107bShift || requestedIt107bShift === it107bAssignment.shift);
@@ -200,6 +228,7 @@ export const StudentPortal: React.FC = () => {
           : [];
         const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
         const currentSeats = seats.filter(seat =>
+          !(!seat.plan.universityBatch && isReplacedFinalAiSession(seat.plan.date, seat.plan.shift)) &&
           !(allocations.length && seat.plan.id === originalCs205bSession) &&
           !(cs302bAssignment && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)) &&
           !(it107bAssignment && /^2026-11-23-(morning|evening)-roomwise$/.test(seat.plan.id)));
@@ -209,7 +238,7 @@ export const StudentPortal: React.FC = () => {
         const showOopj = oopjRoom && (!planId || planId === "2026-11-19-morning-roomwise");
         const visibleSeats = showOopj ? currentSeats.filter(seat => seat.plan.id !== "2026-11-19-morning-roomwise") : currentSeats;
         if (showOopj) setCs336bRoom(oopjRoom);
-        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !showIt107b && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
+        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !showIt107b && !showFinalAi && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
         return;
       }
       const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
@@ -296,6 +325,9 @@ export const StudentPortal: React.FC = () => {
                 >
                   <option value="">All supplied seating plans (18–27 Nov)</option>
                   <optgroup label="MSE / MSE-2 · November 2026">
+                    {finalAiSessions.map(session => (
+                      <option key={session.id} value={`plan:${session.id}`}>{planDate(session.date)} · AI201B · {session.group} · Final {session.shift === "Morning" ? "morning" : "afternoon"} plan</option>
+                    ))}
                     <option value={it107bOption}>23 Nov 2026 · IT107B · Updated G-102 / G-113 assignments</option>
                     <option value={cs302bOption}>25 Nov 2026 · CS302B · Updated morning and evening seating</option>
                     <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
@@ -381,6 +413,7 @@ export const StudentPortal: React.FC = () => {
           />
         )}
 
+        {finalAiResults.length > 0 && <FinalAiResults seats={finalAiResults} />}
         {it107bResult && (
           <section aria-live="polite" className="rounded-2xl border border-stone-200 bg-white p-5">
             <h2 className="text-xl font-bold">IT107B · Artificial Intelligence Essentials</h2>
