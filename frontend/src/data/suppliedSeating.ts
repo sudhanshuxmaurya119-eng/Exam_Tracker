@@ -40,8 +40,8 @@ async function getIndex(plan: SuppliedPlan): Promise<SeatIndex> {
   return pending;
 }
 
-export async function searchSuppliedSeats(roll: string, planId?: string, shift?: string): Promise<SuppliedSeat[]> {
-  const plans = roomwisePlans.filter(p => (!planId || p.id === planId) && (!shift || p.shift.toLowerCase() === shift.toLowerCase()));
+export async function searchSuppliedSeats(roll: string, planId?: string, shift?: string, date?: string): Promise<SuppliedSeat[]> {
+  const plans = roomwisePlans.filter(p => (!planId || p.id === planId) && (!shift || p.shift.toLowerCase() === shift.toLowerCase()) && (!date || p.date === date));
   const results = await Promise.all(plans.map(async plan => {
     const index = await getIndex(plan);
     return index.seats.filter(seat => seat[0] === roll).map(seat => ({

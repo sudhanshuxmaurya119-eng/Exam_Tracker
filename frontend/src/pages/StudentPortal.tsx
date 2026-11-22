@@ -19,7 +19,7 @@ import cs302bSeating from "../data/cs302b-seating.json";
 import it107bSeating from "../data/it107b-seating.json";
 import { FinalAiResults } from "../components/FinalAiResults";
 import { finalAiSessions, FinalAiSeat, getFinalAiSeats } from "../data/finalAiSeating";
-import { planDate, planTime, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
+import { planDate, roomwisePlans, searchSuppliedSeats, SuppliedSeat } from "../data/suppliedSeating";
 
 interface BatchAllocation {
   section: string;
@@ -37,7 +37,6 @@ interface Cs302bAllocation {
 }
 
 const cs302bByRegistration: Record<string, Cs302bAllocation> = cs302bSeating;
-const cs302bOption = "plan:cs302b";
 
 interface It107bAssignment {
   shift: string;
@@ -47,11 +46,8 @@ interface It107bAssignment {
 }
 
 const it107bByRegistration: Record<string, It107bAssignment> = it107bSeating;
-const it107bOption = "plan:it107b";
 
 const cs205b: Record<string, BatchAllocation[]> = cs205bSeating;
-const cs205bOption = "plan:cs205b";
-const el106bOption = "plan:el106b";
 const trackExams = {
   pps: { title: "Programming for Problem Solving (26IT101ESB)", date: "2026-11-18", evening: "2:00 PM – 4:00 PM" },
   ibm: { title: "IBM Track · Web Designing and Cloud Foundations", date: "2026-11-19", evening: "1:30 PM – 3:30 PM" },
@@ -64,7 +60,7 @@ const batchTime = (batch: number) => batch === 1 ? "10:00 AM – 1:00 PM" : "1:3
 
 export const StudentPortal: React.FC = () => {
   const [rollNumber, setRollNumber] = useState("");
-  const [selectedExamId, setSelectedExamId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedShift, setSelectedShift] = useState<string>("");
 
   const [examinations, setExaminations] = useState<PublicExamination[]>([]);
@@ -112,10 +108,18 @@ export const StudentPortal: React.FC = () => {
     return Array.from(set);
   }, [examinations]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = rollNumber.trim().toUpperCase();
-    const finalAiAssignments = getFinalAiSeats(trimmed);
+  const examDates = useMemo(() => Array.from(new Set([
+    ...roomwisePlans.map(plan => plan.date),
+    ...finalAiSessions.map(session => session.date),
+    ...examinations.map(exam => exam.exam_date),
+    "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23", "2026-11-25",
+  ])).sort(), [examinations]);
+
+  const handleSearch = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const registration = rollNumber.trim().toUpperCase();
+    setErrorMessage(null);
+    setIsConnectionError(false);
     setFinalAiResults([]);
     setBatchResults([]);
     setEl106bBranch(null);
@@ -124,135 +128,82 @@ export const StudentPortal: React.FC = () => {
     setAi101bMatches([]);
     setCs302bResult(null);
     setIt107bResult(null);
-    const it107bAssignment = Object.prototype.hasOwnProperty.call(it107bByRegistration, trimmed)
-      ? it107bByRegistration[trimmed]
-      : undefined;
-    const cs302bAssignment = Object.prototype.hasOwnProperty.call(cs302bByRegistration, trimmed)
-      ? cs302bByRegistration[trimmed]
-      : undefined;
-    const allocations = Object.prototype.hasOwnProperty.call(cs205b, trimmed) ? cs205b[trimmed] : [];
-    if (!trimmed) {
-      setErrorMessage("Please enter your University Registration Number to search.");
-      return;
-    }
-    const isUid = /^\d{4}BTECH\d+$/.test(trimmed);
-    const isTrackPlan = selectedExamId === "plan:pps" || selectedExamId === "plan:ibm";
-    const namedAi101b = ai101bRooms.filter(room => room.additional.includes(trimmed));
-    const ai101bRoomsForRoll = namedAi101b.length ? namedAi101b : ai101bRooms.filter(room =>
-      /^\d{13}$/.test(trimmed) && trimmed >= room.start && trimmed <= room.end);
-    if ((!selectedExamId || selectedExamId.startsWith("plan:")) && !/^\d{15,16}$/.test(trimmed) && !isUid && !isTrackPlan && !allocations.length && !cs302bAssignment && !finalAiAssignments.length && !ai101bRoomsForRoll.length && ![cs205bOption, cs302bOption, "plan:ai101b"].includes(selectedExamId)) {
-      setErrorMessage("Please enter the full registration number, enrollment number, or KIET UID from your exam plan.");
-      setSuppliedResult(null);
-      return;
-    }
-
-    setSearching(true);
-    setErrorMessage(null);
-    setIsConnectionError(false);
     setSuppliedResult(null);
     setSearchResult(null);
 
+    if (!registration) {
+      setErrorMessage("Please enter your registration number or KIET UID to search.");
+      return;
+    }
+
+    const matchesFilters = (date: string, shift: string) =>
+      (!selectedDate || date === selectedDate) && (!selectedShift || shift === selectedShift);
+    const finalAssignments = getFinalAiSeats(registration);
+    const finalSeats = finalAssignments.filter(seat => {
+      const session = finalAiSessions.find(item => item.id === seat.session)!;
+      return matchesFilters(session.date, session.shift);
+    });
+    const batchAssignments = Object.prototype.hasOwnProperty.call(cs205b, registration) ? cs205b[registration] : [];
+    const batches = batchAssignments.filter(seat => matchesFilters("2026-11-23", seat.batch === 1 ? "Morning" : "Evening"));
+    const trackAssignments = Object.prototype.hasOwnProperty.call(trackSeatsByUid, registration) ? trackSeatsByUid[registration] : [];
+    const tracks = trackAssignments.filter(seat => matchesFilters(seat.exam === "pps" ? trackExams.pps.date : trackExams.ibm.date, seat.shift));
+    const cs302b = Object.prototype.hasOwnProperty.call(cs302bByRegistration, registration) ? cs302bByRegistration[registration] : undefined;
+    const cs302bSeat = cs302b && matchesFilters("2026-11-25", cs302b.shift) ? cs302b : null;
+    const it107b = Object.prototype.hasOwnProperty.call(it107bByRegistration, registration) ? it107bByRegistration[registration] : undefined;
+    const it107bSeat = it107b && matchesFilters("2026-11-23", it107b.shift) ? it107b : null;
+    const rosterBranch = Object.prototype.hasOwnProperty.call(el106bRosterByRegistration, registration) && matchesFilters("2026-11-20", "Morning")
+      ? el106bRosterByRegistration[registration] : null;
+    const namedAiRooms = ai101bRooms.filter(room => room.additional.includes(registration));
+    const aiRooms = namedAiRooms.length ? namedAiRooms : ai101bRooms.filter(room =>
+      /^\d{13}$/.test(registration) && registration >= room.start && registration <= room.end);
+    const ai101bSeats = matchesFilters("2026-11-19", "Morning") ? aiRooms : [];
+    const oopjSeat = /^\d{15}$/.test(registration) && matchesFilters("2026-11-19", "Morning")
+      ? cs336bRooms.find(room => room.additional.includes(registration) || (registration >= room.start && registration <= room.end)) || null
+      : null;
+
+    const replacesFinalAi = (date: string, shift: string) => finalAssignments.some(seat => {
+      const session = finalAiSessions.find(item => item.id === seat.session)!;
+      return session.date === date && (date === "2026-11-23" || session.shift === shift);
+    });
+
+    setSearching(true);
     try {
-      if (!selectedExamId || selectedExamId.startsWith("plan:")) {
-        const planId = selectedExamId.replace(/^plan:/, "");
-        const finalAiMatches = finalAiAssignments.filter(seat => {
-          const session = finalAiSessions.find(item => item.id === seat.session)!;
-          return !selectedShift || session.shift === selectedShift;
-        });
-        const selectedFinalAi = finalAiSessions.find(session => session.id === planId);
-        const isReplacedFinalAiSession = (date: string, shift: string) => finalAiAssignments.some(seat => {
-          const session = finalAiSessions.find(item => item.id === seat.session)!;
-          return session.date === date && (date === "2026-11-23" || session.shift === shift);
-        });
-        const previousFinalAiPlan = roomwisePlans.find(plan => plan.id === planId && !plan.universityBatch && isReplacedFinalAiSession(plan.date, plan.shift));
-        if (selectedFinalAi || previousFinalAiPlan) {
-          const assignments = selectedFinalAi
-            ? finalAiMatches.filter(seat => seat.session === selectedFinalAi.id)
-            : finalAiMatches.filter(seat => {
-              const session = finalAiSessions.find(item => item.id === seat.session)!;
-              return session.date === previousFinalAiPlan!.date && session.shift === (selectedShift || previousFinalAiPlan!.shift);
-            });
-          if (assignments.length) setFinalAiResults(assignments);
-          else setErrorMessage("No assignment matches this final AI201B session and shift. Select your final AI201B plan and All Shifts to check your assignment.");
-          return;
+      const supplied = await searchSuppliedSeats(registration, undefined, selectedShift || undefined, selectedDate || undefined);
+      const seats = supplied.filter(seat =>
+        !(!seat.plan.universityBatch && replacesFinalAi(seat.plan.date, seat.plan.shift)) &&
+        !(batchAssignments.length && seat.plan.id === originalCs205bSession) &&
+        !(cs302b && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)) &&
+        !(it107b && /^2026-11-23-(morning|evening)-roomwise$/.test(seat.plan.id)) &&
+        !(oopjSeat && seat.plan.id === "2026-11-19-morning-roomwise"));
+
+      let publishedResult: StudentSearchResponse | null = null;
+      let publishedUnavailable = false;
+      if (examinations.some(exam => !selectedDate || exam.exam_date === selectedDate)) {
+        try {
+          const response = await apiClient.searchStudentSeating(registration, undefined, selectedShift || undefined);
+          const allocations = response.allocations.filter(seat => !selectedDate || seat.exam_date === selectedDate);
+          if (allocations.length) publishedResult = { ...response, allocations, total_allocations: allocations.length };
+        } catch (error) {
+          if (!(error instanceof ApiClientError && error.status === 404)) {
+            publishedUnavailable = true;
+            setErrorMessage("Additional published seating records could not be loaded. Please try again.");
+          }
         }
-        const showFinalAi = !planId && finalAiMatches.length > 0;
-        if (showFinalAi) setFinalAiResults(finalAiMatches);
-        const isPreviousIt107bSession = /^2026-11-23-(morning|evening)-roomwise$/.test(planId);
-        const requestedIt107bShift = selectedShift || (isPreviousIt107bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
-        const matchesIt107bShift = it107bAssignment && (!requestedIt107bShift || requestedIt107bShift === it107bAssignment.shift);
-        if (planId === "it107b" || (isPreviousIt107bSession && it107bAssignment)) {
-          if (matchesIt107bShift) setIt107bResult(it107bAssignment);
-          else setErrorMessage("No IT107B assignment matches this registration number and shift. Choose All Shifts to check your assignment.");
-          return;
-        }
-        const showIt107b = !planId && matchesIt107bShift;
-        if (showIt107b) setIt107bResult(it107bAssignment);
-        const isPreviousCs302bSession = /^2026-11-25-(morning|evening)-roomwise$/.test(planId);
-        const requestedCs302bShift = selectedShift || (isPreviousCs302bSession ? (planId.includes("morning") ? "Morning" : "Evening") : "");
-        const matchesCs302bShift = cs302bAssignment && (!requestedCs302bShift || requestedCs302bShift === cs302bAssignment.shift);
-        if (planId === "cs302b" || (isPreviousCs302bSession && cs302bAssignment)) {
-          if (matchesCs302bShift) setCs302bResult(cs302bAssignment);
-          else setErrorMessage("No CS302B assignment matches this registration number and shift. Try All Shifts to check your assignment.");
-          return;
-        }
-        if (!planId && matchesCs302bShift) setCs302bResult(cs302bAssignment);
-        if (planId === "ai101b" || (!planId && ai101bRoomsForRoll.length)) {
-          if (ai101bRoomsForRoll.length && selectedShift !== "Evening") setAi101bMatches(ai101bRoomsForRoll);
-          else setErrorMessage("No AI101B room matches this roll number and shift.");
-          return;
-        }
-        const oopjRoom = /^\d{15}$/.test(trimmed) && selectedShift !== "Evening"
-          ? cs336bRooms.find(({ start, end, additional }) => additional.includes(trimmed) || (trimmed >= start && trimmed <= end))
-          : undefined;
-        if (planId === "cs336b") {
-          if (oopjRoom) setCs336bRoom(oopjRoom);
-          else setErrorMessage("No CS336B room range matches this registration number and shift.");
-          return;
-        }
-        if (isTrackPlan || (!planId && isUid)) {
-          const matches = (Object.prototype.hasOwnProperty.call(trackSeatsByUid, trimmed) ? trackSeatsByUid[trimmed] : [])
-            .filter(seat => (!planId || seat.exam === planId) && (!selectedShift || seat.shift === selectedShift));
-          setTrackResults(matches);
-          if (!matches.length) setErrorMessage("No assignment matches this KIET UID, exam, and shift. Check the UID and try again.");
-          return;
-        }
-        const rosterBranch = /^\d{15}$/.test(trimmed) ? el106bRosterByRegistration[trimmed] : undefined;
-        if (planId === "el106b") {
-          if (rosterBranch && selectedShift !== "Evening") setEl106bBranch(rosterBranch);
-          else setErrorMessage("No EL106B roster entry matches this registration number and shift.");
-          return;
-        }
-        const matches = !planId || planId === "cs205b" || planId === originalCs205bSession
-          ? allocations.filter(({ batch }) => !selectedShift || selectedShift === (batch === 1 ? "Morning" : "Evening"))
-          : [];
-        const seats = planId === "cs205b" ? [] : await searchSuppliedSeats(trimmed, planId || undefined, selectedShift || undefined);
-        const currentSeats = seats.filter(seat =>
-          !(!seat.plan.universityBatch && isReplacedFinalAiSession(seat.plan.date, seat.plan.shift)) &&
-          !(allocations.length && seat.plan.id === originalCs205bSession) &&
-          !(cs302bAssignment && /^2026-11-25-(morning|evening)-roomwise$/.test(seat.plan.id)) &&
-          !(it107bAssignment && /^2026-11-23-(morning|evening)-roomwise$/.test(seat.plan.id)));
-        setBatchResults(matches);
-        const showRoster = !planId && rosterBranch && selectedShift !== "Evening";
-        if (showRoster) setEl106bBranch(rosterBranch);
-        const showOopj = oopjRoom && (!planId || planId === "2026-11-19-morning-roomwise");
-        const visibleSeats = showOopj ? currentSeats.filter(seat => seat.plan.id !== "2026-11-19-morning-roomwise") : currentSeats;
-        if (showOopj) setCs336bRoom(oopjRoom);
-        if (visibleSeats.length || (!matches.length && !showRoster && !showOopj && !showIt107b && !showFinalAi && !(!planId && matchesCs302bShift))) setSuppliedResult({ roll: trimmed, seats: visibleSeats });
-        return;
       }
-      const examIdNum = selectedExamId ? Number(selectedExamId) : undefined;
-      const shiftVal = selectedShift || undefined;
-      const result = await apiClient.searchStudentSeating(trimmed, examIdNum, shiftVal);
-      setSearchResult(result);
-    } catch (err: unknown) {
-      setSearchResult(null);
-      if (err instanceof ApiClientError) {
-        setIsConnectionError(err.isConnectionError);
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage("The seating plans could not be loaded. Please check your connection and try again.");
-      }
+
+      setFinalAiResults(finalSeats);
+      setBatchResults(batches);
+      setTrackResults(tracks);
+      setCs302bResult(cs302bSeat);
+      setIt107bResult(it107bSeat);
+      setEl106bBranch(rosterBranch);
+      setAi101bMatches(ai101bSeats);
+      setCs336bRoom(oopjSeat);
+      setSearchResult(publishedResult);
+      const hasResults = finalSeats.length || batches.length || tracks.length || cs302bSeat || it107bSeat || rosterBranch || ai101bSeats.length || oopjSeat || publishedResult;
+      if (seats.length || (!hasResults && !publishedUnavailable)) setSuppliedResult({ roll: registration, seats });
+    } catch {
+      setErrorMessage("The seating plans could not be loaded. Please check your connection and try again.");
     } finally {
       setSearching(false);
     }
@@ -261,7 +212,8 @@ export const StudentPortal: React.FC = () => {
   const combinedPdfUrl = searchResult
     ? apiClient.getSeatingSlipPdfUrl(
         searchResult.query_roll_number,
-        selectedExamId ? Number(selectedExamId) : undefined,
+        searchResult.allocations.every(seat => seat.examination_id === searchResult.allocations[0]?.examination_id)
+          ? searchResult.allocations[0]?.examination_id : undefined,
         selectedShift || undefined
       )
     : "";
@@ -315,38 +267,16 @@ export const StudentPortal: React.FC = () => {
                   htmlFor="exam-filter"
                   className="block text-xs font-semibold uppercase tracking-wider text-stone-600 mb-1.5"
                 >
-                  Select Examination (Optional)
+                  Exam Date (Optional)
                 </label>
                 <select
                   id="exam-filter"
-                  value={selectedExamId}
-                  onChange={(e) => { setSelectedExamId(e.target.value); setSelectedShift(""); }}
+                  value={selectedDate}
+                  onChange={(e) => { setSelectedDate(e.target.value); setSelectedShift(""); }}
                   className="w-full px-3.5 py-3 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
-                  <option value="">All supplied seating plans (18–27 Nov)</option>
-                  <optgroup label="MSE / MSE-2 · November 2026">
-                    {finalAiSessions.map(session => (
-                      <option key={session.id} value={`plan:${session.id}`}>{planDate(session.date)} · AI201B · {session.group} · Final {session.shift === "Morning" ? "morning" : "afternoon"} plan</option>
-                    ))}
-                    <option value={it107bOption}>23 Nov 2026 · IT107B · Updated G-102 / G-113 assignments</option>
-                    <option value={cs302bOption}>25 Nov 2026 · CS302B · Updated morning and evening seating</option>
-                    <option value="plan:pps">18 Nov 2026 · PPS · Morning and evening</option>
-                    <option value="plan:ibm">19 Nov 2026 · IBM Track · First and second shift</option>
-                    <option value="plan:ai101b">19 Nov 2026 · AI101B · 2nd-year ECE / VLSI</option>
-                    <option value="plan:cs336b">19 Nov 2026 · CS336B · 2nd-year CSE-AIML</option>
-                    <option value={el106bOption}>20 Nov 2026 · EL106B · Exam roster</option>
-                    <option value={cs205bOption}>23 Nov 2026 · CS205B · Updated batch seating</option>
-                    {roomwisePlans.map(plan => <option key={plan.id} value={`plan:${plan.id}`}>
-                      {planDate(plan.date)} · {plan.universityBatch && plan.shift === "Evening" ? "Afternoon" : plan.shift} · {plan.universityBatch ? "University batch" : planTime(plan.shift)}
-                    </option>)}
-                  </optgroup>
-                  {examinations.length > 0 && <optgroup label="Other published examinations">
-                  {examinations.map((exam) => (
-                    <option key={exam.id} value={exam.id}>
-                      {exam.exam_code} — {exam.title} ({exam.shift})
-                    </option>
-                  ))}
-                  </optgroup>}
+                  <option value="">All exam dates</option>
+                  {examDates.map(date => <option key={date} value={date}>{planDate(date)}</option>)}
                 </select>
               </div>
 
