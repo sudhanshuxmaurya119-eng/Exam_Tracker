@@ -163,7 +163,7 @@ export const StudentPortal: React.FC = () => {
 
     const replacesFinalAi = (date: string, shift: string) => finalAssignments.some(seat => {
       const session = finalAiSessions.find(item => item.id === seat.session)!;
-      return session.date === date && (date === "2026-11-23" || session.shift === shift);
+      return session.date === date && (date === "2026-11-23" || session.subject.startsWith("AI103E ") || session.shift === shift);
     });
 
     setSearching(true);
