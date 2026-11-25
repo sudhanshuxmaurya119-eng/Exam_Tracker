@@ -17,7 +17,7 @@ export const FinalAiResults: React.FC<{ seats: FinalAiSeat[] }> = ({ seats }) =>
           {assignments.filter(seat => seat.details.subject === subject).map(seat => (
             <article key={seat.session} className="rounded-2xl border border-stone-200 bg-white p-5">
               <h3 className="font-bold">{seat.details.group} · {seat.details.subject.startsWith("AI201B ") ? "Final seating plan" : "Seating plan"}</h3>
-              <p className="mt-2 text-sm">{planDate(seat.details.date)} · {seat.details.shift === "Morning" ? "Morning" : "Afternoon"} · {seat.details.time} IST</p>
+              <p className="mt-2 text-sm">{planDate(seat.details.date)} · {seat.details.shift === "Morning" ? "Morning" : "Afternoon"}{seat.details.time ? ` · ${seat.details.time} IST` : " · Time not specified in the source"}</p>
               <p className="mt-2 text-lg font-bold">Room {seat.room}</p>
               {seat.row !== undefined && seat.column !== undefined ? (
                 <>
@@ -25,8 +25,9 @@ export const FinalAiResults: React.FC<{ seats: FinalAiSeat[] }> = ({ seats }) =>
                   <p className="mt-3 text-xs text-stone-500">Position in the final room grid, counting from the top left and excluding blank spacer columns.</p>
                 </>
               ) : (
-                <p className="mt-3 text-xs text-stone-500">Room allocation from the supplied registration-number ranges and individual entries.</p>
+                <p className="mt-3 text-xs text-stone-500">Room allocation from the supplied seating plan.</p>
               )}
+              {seat.source && <a href={`${import.meta.env.BASE_URL}${seat.source}#page=${seat.page}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-rose-700 underline">View attendance sheet · page {seat.page}</a>}
             </article>
           ))}
         </section>

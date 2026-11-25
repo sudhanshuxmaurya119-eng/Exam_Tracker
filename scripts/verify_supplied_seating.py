@@ -30,8 +30,8 @@ with sync_playwright() as p:
     page.route('**/api/v1/**', lambda route: route.abort())
     page.goto(BASE_URL)
     date_values = page.locator('#exam-filter option').evaluate_all('(options) => options.map(option => option.value)')
-    assert len(date_values) == len(set(date_values)) == 8
-    assert date_values == ['', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-23', '2026-11-25', '2026-11-26', '2026-11-27']
+    assert len(date_values) == len(set(date_values)) == 9
+    assert date_values == ['', '2026-09-26', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-23', '2026-11-25', '2026-11-26', '2026-11-27']
     assert page.locator('#exam-filter optgroup').count() == 0
     def submit(date, roll, shift=''):
         page.locator('#exam-filter').select_option(date)
